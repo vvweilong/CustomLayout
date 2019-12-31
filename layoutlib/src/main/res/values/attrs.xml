@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="CustomLinearLayout">
+        <attr name="orientation" format="enum">
+            <enum name="v" value="0"/>
+            <enum name="h" value="1"/>
+        </attr>
+    </declare-styleable>
+
+    <declare-styleable name="CustomLinearLayout_Layout">
+        <attr name="weight" format="integer"/>
+    </declare-styleable>
+</resources>
