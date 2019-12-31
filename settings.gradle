@@ -1,3 +1,4 @@
 rootProject.name='CustomLayout'
 include ':app'
 include ':layoutlib'
+include ':viewlib'
