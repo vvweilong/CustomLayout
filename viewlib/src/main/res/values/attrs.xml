@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+<declare-styleable name="SwipMenuView">
+    <attr name="max_offset" format="float"/>
+</declare-styleable>
+<declare-styleable name="SwipMenuView_Layout">
+    <attr name="type" format="enum">
+        <enum name="data" value="0"/>
+        <enum name="meun" value="1"/>
+    </attr>
+</declare-styleable>
+</resources>
