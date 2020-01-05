@@ -2,9 +2,12 @@ package com.oo.layoutlib.linear
 
 import android.content.Context
 import android.util.AttributeSet
+import android.util.Log
 import android.view.MotionEvent
+import android.view.VelocityTracker
 import android.view.ViewConfiguration
 import android.view.ViewGroup
+import android.widget.OverScroller
 import android.widget.Scroller
 import androidx.core.view.children
 
@@ -15,8 +18,11 @@ class CustomScrollView @JvmOverloads constructor(
         initCustomScrollView()
     }
 
-    private var mScroller :Scroller?=null
-    private var mTouchSlop :Int?=null
+    private var mVelocityTracker = VelocityTracker.obtain()
+    private var mActivePointerId: Int = 0
+    private var mLastMotionY: Int=0
+    private var mScroller :OverScroller?=null
+    private var mTouchSlop :Int=0
     private var scaledMinimumFlingVelocity=0
     private var scaledMaximumFlingVelocity=0
     private var scaledOverflingDistance=0
@@ -26,7 +32,7 @@ class CustomScrollView @JvmOverloads constructor(
     private var canScrollVertical = false
 
     private fun initCustomScrollView(){
-        mScroller = Scroller(context)
+        mScroller = OverScroller(context)
         setWillNotDraw(false)
         val configuration = ViewConfiguration.get(context)
         mTouchSlop= configuration.scaledPagingTouchSlop
@@ -39,34 +45,70 @@ class CustomScrollView @JvmOverloads constructor(
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         for (child in children) {
-            child.measure(widthMeasureSpec, heightMeasureSpec)
+            val makeMeasureSpec = MeasureSpec.makeMeasureSpec(
+                MeasureSpec.getSize(heightMeasureSpec),
+                MeasureSpec.UNSPECIFIED
+            )
+            child.measure(widthMeasureSpec, makeMeasureSpec)
+            Log.i("measure","${child.measuredHeight}")
         }
     }
 
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         for (child in children) {
-            child.layout(l, t, r, b)
+            child.layout(l, t, r, t+child.measuredHeight)
         }
+
     }
-
-    override fun onInterceptTouchEvent(ev: MotionEvent?): Boolean {
-        if (ev == null) {
-            return false
-        }
-        //是否要拦截事件
-        //如果是 move 事件
-        when(ev.action and MotionEvent.ACTION_MASK){
-            MotionEvent.ACTION_MOVE->{}
-            MotionEvent.ACTION_DOWN->{}
-            MotionEvent.ACTION_UP->{}
-        }
-
-
-
-        return super.onInterceptTouchEvent(ev)
-    }
-
+    private var mIsBeingDragged=false
     override fun onTouchEvent(event: MotionEvent?): Boolean {
-        return super.onTouchEvent(event)
+        if (mVelocityTracker == null) {
+            mVelocityTracker = VelocityTracker.obtain()
+        }
+        mVelocityTracker.addMovement(event)
+        val actionMasked = event?.actionMasked
+        mActivePointerId = event?.getPointerId(0)?:-1
+        when(actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                mLastMotionY = event.y.toInt()
+                return true
+
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val deltaY = mLastMotionY-event.y.toInt()//增量
+                mScroller?.startScroll(0,mScroller?.finalY?:0,0,deltaY)
+
+                invalidate()
+                mLastMotionY = event.y.toInt()
+                return true
+            }
+            MotionEvent.ACTION_UP -> {
+                val childAt = getChildAt(0)
+                childAt.scrollY
+                mVelocityTracker.computeCurrentVelocity(1000, scaledMaximumFlingVelocity.toFloat())
+                val initialVelocity = mVelocityTracker.getYVelocity(mActivePointerId).toInt()
+                val height: Int = height
+                val bottom = childAt.height
+
+                mScroller?.fling(
+                    0, childAt.scrollY, 0, -initialVelocity, 0, 0, 0,
+                    Math.max(0, bottom - height),0,height/2)
+
+                postInvalidateOnAnimation()
+                mVelocityTracker.clear()
+            }
+        }
+
+
+        return true
+    }
+
+    override fun computeScroll() {
+        super.computeScroll()
+        if(mScroller?.computeScrollOffset()==true){
+            getChildAt(0).scrollTo(0,mScroller?.currY?:0)
+            postInvalidateOnAnimation()
+        }
+
     }
 }

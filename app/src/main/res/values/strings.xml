@@ -1,3 +1,286 @@
 <resources>
     <string name="app_name">CustomLayout</string>
+    <string name="text">首页博客学院下载论坛问答活动专题招聘APPVIP会员续费8折
+Python进阶之路
+
+写博客登录/注册
+Android Scroller详解
+转载hehe_heh 发布于2018-05-09 16:15:51 阅读数 2187  收藏
+展开
+在学习使用Scroller之前，需要明白scrollTo()、scrollBy()方法。
+一、View的scrollTo()、scrollBy()
+scrollTo、scrollBy方法是View中的，因此任何的View都可以通过这两种方法进行移动。首先要明白的是，scrollTo、scrollBy滑动的是View中的内容（而且还是整体滑动），而不是View本身。我们的滑动控件如SrollView可以限定宽、高大小，以及在布局中的位置，但是滑动控件中的内容（或者里面的childView）可以是无限长、宽的，我们调用View的scrollTo、scrollBy方法，相当于是移动滑动控件中的画布Canvas，然后进行重绘，屏幕上也就显示相应的内容。如下：
+
+1、getScrollX()、getScrollY()
+在学习scrollTo()、scrollBy()之前，先来了解一下getScrollX()、getScrollY()方法。
+getScrollX()、getScrollY()得到的是偏移量，是相对自己初始位置的滑动偏移距离，只有当有scroll事件发生时，这两个方法才能有值，否则getScrollX()、getScrollY()都是初始时的值0，而不管你这个滑动控件在哪里。所谓自己初始位置是指，控件在刚开始显示时、没有滑动前的位置。以getScrollX()为例，其源码如下：
+public final int getScrollX() {
+    return mScrollX;
+}
+    可以看到getScrollX()直接返回的就是mScrollX，代表水平方向上的偏移量，getScrollY()也类似。偏移量mScrollX的正、负代表着，滑动控件中的内容相对于初始位置在水平方向上偏移情况，mScrollX为正代表着当前内容相对于初始位置向左偏移了mScrollX的距离，mScrollX为负表示当前内容相对于初始位置向右偏移了mScrollX的距离。
+    这里的坐标系和我们平常的认知正好相反。为了以后更方便的处理滑动相关坐标和偏移，在处理偏移、滑动相关的功能时，我们就可以把坐标反过来看，如下图：
+
+
+因为滑动控件中的内容是整体进行滑动的，同时也是相对于自己显示时的初始位置的偏移，对于View中内容在偏移时的参考坐标原点（注意是内容视图的坐标原点，不是图中说的滑动控件的原点），可以选择初始位置的某一个地方，因为滑动时整体行为，在进行滑动的时候从这个选择的原点出进行分析即可。
+
+2、scrollTo()、scrollBy()
+scrollTo(int x,int y)移动的是View中的内容，而滑动控件中的内容都是整体移动的，scrollTo(int x,int y)中的参数表示View中的内容要相对于内容初始位置移动x和y的距离，即将内容移动到距离内容初始位置x和y的位置。正如前面所说，在处理偏移、滑动问题时坐标系和平常认知的坐标系是相反的。以一个例子说明scrollTo()：
+
+说明：图中黄色矩形区域表示的是一个可滑动的View控件，绿色虚线矩形为滑动控件中的滑动内容。注意这里的坐标是相反的。（例子来源于：http://blog.csdn.net/bigconvience/article/details/26697645）
+
+（1）调用scrollTo(100,0)表示将View中的内容移动到距离内容初始显示位置的x=100，y=0的地方，效果如下图：
+
+（2）调用scrollTo(0,100)效果如下图：
+
+（3）调用scrollTo(100,100)效果如下图：
+
+（4）调用scrollTo(-100,0)效果如下图：
+
+通过上面几个图，可以清楚看到scrollTo的作用和滑动坐标系的关系。在实际使用中，我们一般是在onTouchEvent()方法中处理滑动事件，在MotionEvent.ACTION_MOVE时调用scrollTo(int x,int y)进行滑动，在调用scrollTo(int x,int y)前，我们先要计算出两个参数值，即水平和垂直方向需要滑动的距离，如下：
+[java] view plain copy
+@Override
+public boolean onTouchEvent(MotionEvent event) {
+    int y = (int) event.getY();
+    int action = event.getAction();
+    switch (action){
+    case MotionEvent.ACTION_DOWN:
+            mLastY = y;
+            break;
+    case MotionEvent.ACTION_MOVE:
+            int dy = mLastY - y;//本次手势滑动了多大距离
+            int oldScrollY = getScrollY();//先计算之前已经偏移了多少距离
+            int scrollY = oldScrollY + dy;//本次需要偏移的距离=之前已经偏移的距离+本次手势滑动了多大距离
+            if(scrollY  0){
+                scrollY = 0;
+            }
+            if(scrollY > getHeight() - mScreenHeight){
+                scrollY = getHeight() - mScreenHeight;
+            }
+            scrollTo(getScrollX(),scrollY);
+            mLastY = y;
+            break;
+    }
+    return true;
+}
+上面在计算参数时，分为了三步。第一是，通过int dy = mLastY - y;得到本次手势在屏幕上滑动了多少距离，这里要特别注意这个相减顺序，因为这里的坐标与平常是相反的，因此，手势滑动距离是按下时的坐标mLastY - 当前的坐标y；第二是，通过oldScrollY = getScrollY();获得滑动内容之前已经距初始位置便宜了多少；第三是，计算本次需要偏移的参数int scrollY = oldScrollY + dy; 后面通过两个if条件进行了边界处理，然后调用scrollTo进行滑动。调用完scrollTo后，新的偏移量又重新产生了。从scrollTo源码中可以看到：
+[java] view plain copy
+public void scrollTo(int x, int y) {
+        if (mScrollX != x || mScrollY != y) {
+            int oldX = mScrollX;
+            int oldY = mScrollY;
+            mScrollX = x;//赋值新的x偏移量
+            mScrollY = y;//赋值新的y偏移量
+            invalidateParentCaches();
+            onScrollChanged(mScrollX, mScrollY, oldX, oldY);
+            if (!awakenScrollBars()) {
+                postInvalidateOnAnimation();
+            }
+        }
+    }
+scrollTo是相对于初始位置来进行移动的，而scrollBy(int x ,int y)则是相对于上一次移动的距离来进行本次移动。scrollBy其实还是依赖于scrollTo的，如下源码：
+[java] view plain copy
+public void scrollBy(int x, int y) {
+        scrollTo(mScrollX + x, mScrollY + y);
+    }
+可以看到，使用scrollBy其实就是省略了我们在计算scrollTo参数时的第三步而已，因为scrollBy内部已经自己帮我加上了第三步的计算。因此scrollBy的作用就是相当于在上一次的偏移情况下进行本次的偏移。
+
+一个完整的水平方向滑动的例子：
+[java] view plain copy
+public class MyViewPager extends ViewGroup {
+
+    private int mLastX;
+
+    public MyViewPager(Context context) {
+        super(context);
+        init(context);
+    }
+
+    public MyViewPager(Context context, AttributeSet attrs) {
+        super(context, attrs);
+        init(context);
+    }
+
+    public MyViewPager(Context context, AttributeSet attrs, int defStyleAttr) {
+        super(context, attrs, defStyleAttr);
+        init(context);
+    }
+
+    private void init(Context context) {
+
+    }
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        int count = getChildCount();
+        for(int i = 0; i  count; i++){
+            View child = getChildAt(i);
+            child.measure(widthMeasureSpec,heightMeasureSpec);
+        }
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int l, int t, int r, int b) {
+        int count = getChildCount();
+        Log.d("TAG","--l-->"+l+",--t-->"+t+",-->r-->"+r+",--b-->"+b);
+        for(int i = 0; i  count; i++){
+            View child = getChildAt(i);
+            child.layout(i * getWidth(), t, (i+1) * getWidth(), b);
+        }
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent ev) {
+        int x = (int) ev.getX();
+        switch (ev.getAction()){
+            case MotionEvent.ACTION_DOWN:
+                mLastX = x;
+                break;
+            case MotionEvent.ACTION_MOVE:
+                int dx = mLastX - x;
+                int oldScrollX = getScrollX();//原来的偏移量
+                int preScrollX = oldScrollX + dx;//本次滑动后形成的偏移量
+                if(preScrollX > (getChildCount() - 1) * getWidth()){
+                    preScrollX = (getChildCount() - 1) * getWidth();
+                }
+                if(preScrollX  0){
+                    preScrollX = 0;
+                }
+                scrollTo(preScrollX,getScrollY());
+                mLastX = x;
+                break;
+        }
+        return true;
+    }
+}
+
+布局文件：
+[html] view plain copy
+
+效果如图：
+
+
+二、Scroller滑动辅助类
+根据我们上面的分析，可知View的scrollTo()、scrollBy()是瞬间完成的，当我们的手指在屏幕上移动时，内容会跟着手指滑动，但是当我们手指一抬起时，滑动就会停止，如果我们想要有一种惯性的滚动过程效果和回弹效果，此时就需要使用Scroller辅助类。
+但是注意的是，Scroller本身不会去移动View，它只是一个移动计算辅助类，用于跟踪控件滑动的轨迹，只相当于一个滚动轨迹记录工具，最终还是通过View的scrollTo、scrollBy方法完成View的移动的。
+在使用Scroller类之前，先了解其重要的两个方法：
+（1）startScroll()
+public void startScroll(int startX, int startY, int dx, int dy, int duration)
+开始一个动画控制，由(startX , startY)在duration时间内前进(dx,dy)个单位，即到达偏移坐标为(startX+dx , startY+dy)处。
+（2）computeScrollOffset()
+public boolean computeScrollOffset()
+滑动过程中，根据当前已经消逝的时间计算当前偏移的坐标点，保存在mCurrX和mCurrY值中。
+上面两个方法的源码如下：
+public class Scroller {
+private int mStartX;//水平方向，滑动时的起点偏移坐标
+private int mStartY;//垂直方向，滑动时的起点偏移坐标
+private int mFinalX;//滑动完成后的偏移坐标，水平方向
+private int mFinalY;//滑动完成后的偏移坐标，垂直方向
+
+private int mCurrX;//滑动过程中，根据消耗的时间计算出的当前的滑动偏移距离，水平方向
+private int mCurrY;//滑动过程中，根据消耗的时间计算出的当前的滑动偏移距离，垂直方向
+private int mDuration; //本次滑动的动画时间
+private float mDeltaX;//滑动过程中，在达到mFinalX前还需要滑动的距离，水平方向
+private float mDeltaY;//滑动过程中，在达到mFinalX前还需要滑动的距离，垂直方向
+
+public void startScroll(int startX, int startY, int dx, int dy) {
+        startScroll(startX, startY, dx, dy, DEFAULT_DURATION);
+}
+
+/**
+     * 开始一个动画控制，由(startX , startY)在duration时间内前进(dx,dy)个单位，即到达偏移坐标为(startX+dx , startY+dy)处
+*/
+public void startScroll(int startX, int startY, int dx, int dy, int duration) {
+        mMode = SCROLL_MODE;
+	mFinished = false;
+	mDuration = duration;
+	mStartTime = AnimationUtils.currentAnimationTimeMillis();
+	mStartX = startX;
+	mStartY = startY;
+	mFinalX = startX + dx;//确定本次滑动完成后的偏移坐标
+	mFinalY = startY + dy;
+	mDeltaX = dx;
+	mDeltaY = dy;
+	mDurationReciprocal = 1.0f / (float) mDuration;
+}
+
+/**
+     * 滑动过程中，根据当前已经消逝的时间计算当前偏移的坐标点，保存在mCurrX和mCurrY值中
+     * @return
+*/
+public boolean computeScrollOffset() {
+	if (mFinished) {//已经完成了本次动画控制，直接返回为false
+		return false;
+	}
+	int timePassed = (int)(AnimationUtils.currentAnimationTimeMillis() - mStartTime);
+        if (timePassed  mDuration) {
+		switch (mMode) {
+		case SCROLL_MODE:
+		final float x = mInterpolator.getInterpolation(timePassed * mDurationReciprocal);
+		mCurrX = mStartX + Math.round(x * mDeltaX);//计算出当前的滑动偏移位置，x轴
+		mCurrY = mStartY + Math.round(x * mDeltaY);//计算出当前的滑动偏移位置，y轴
+		break;
+		...
+            }
+        }else {
+		mCurrX = mFinalX;
+		mCurrY = mFinalY;
+		mFinished = true;
+	}
+	return true;
+	}
+    ...
+}
+Scroller类中最重要的两个方法就是startScroll()和computeScrollOffset()，但是Scroller类只是一个滑动计算辅助类，它的startScroll()和computeScrollOffset()方法中也只是对一些轨迹参数进行设置和计算，真正需要进行滑动还是得通过View的scrollTo()、scrollBy()方法。为此，View中提供了computeScroll()方法来控制这个滑动流程。computeScroll()方法会在绘制子视图的时候进行调用。其源码如下：
+[java] view plain copy
+/**
+ * Called by a parent to request that a child update its values for mScrollX
+ * and mScrollY if necessary. This will typically be done if the child is
+ * animating a scroll using a {@link android.widget.Scroller Scroller}
+ * object.
+ * 由父视图调用用来请求子视图根据偏移值 mScrollX,mScrollY重新绘制
+ */
+public void computeScroll() { //空方法 ，自定义滑动功能的ViewGroup必须实现方法体
+
+}
+因此Scroller类的基本使用流程可以总结如下：
+（1）首先通过Scroller类的startScroll()开始一个滑动动画控制，里面进行了一些轨迹参数的设置和计算；
+（2）在调用startScroll()的后面调用invalidate()；引起视图的重绘操作，从而触发ViewGroup中的computeScroll()被调用；
+（3）在computeScroll()方法中，先调用Scroller类中的computeScrollOffset()方法，里面根据当前消耗时间进行轨迹坐标的计算，然后取得计算出的当前滑动的偏移坐标，调用View的scrollTo()方法进行滑动控制，最后也需要调用invalidate()；进行重绘。
+如下的一个简单代码示例：
+[java] view plain copy
+@Override
+   public boolean onTouchEvent(MotionEvent ev) {
+       initVelocityTrackerIfNotExists();
+       mVelocityTracker.addMovement(ev);
+       int x = (int) ev.getX();
+       switch (ev.getAction()){
+           case MotionEvent.ACTION_DOWN:
+               if(!mScroller.isFinished()){
+                   mScroller.abortAnimation();
+               }
+               mLastX = x;
+               break;
+           case MotionEvent.ACTION_MOVE:
+               int dx = mLastX - x;
+               int oldScrollX = getScrollX();//原来的偏移量
+               int preScrollX = oldScrollX + dx;//本次滑动后形成的偏移量
+               if(preScrollX > (getChildCount() - 1) * getWidth()){
+                   preScrollX = (getChildCount() - 1) * getWidth();
+               }
+               if(preScrollX  0){
+                   preScrollX = 0;
+               }
+               //开始滑动动画
+               mScroller.startScroll(mScroller.getFinalX(),mScroller.getFinalY(),dx,0);//第一步
+               //注意，一定要进行invalidate刷新界面，触发computeScroll()方法，因为单纯的startScroll()是属于Scroller的，只是一个辅助类，并不会触发界面的绘制
+               invalidate();
+               mLastX = x;
+               break;
+       }
+       return true;
+   }
+
+
+</string>
 </resources>
