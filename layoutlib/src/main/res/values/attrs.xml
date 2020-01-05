@@ -10,4 +10,15 @@
     <declare-styleable name="CustomLinearLayout_Layout">
         <attr name="weight" format="integer"/>
     </declare-styleable>
+
+
+    <declare-styleable name="CustomTagFlowLayout">
+
+    </declare-styleable>
+    <declare-styleable name="CustomTagFlowLayout_Layout">
+        <attr format="enum" name="item_tag">
+            <enum name="sold" value="1"/>
+            <enum name="normal" value="0"/>
+        </attr>
+    </declare-styleable>
 </resources>
